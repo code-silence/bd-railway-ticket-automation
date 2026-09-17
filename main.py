@@ -8,17 +8,17 @@ from playwright.sync_api import sync_playwright
 # ============================================================
 
 FROM_CITY = "Dhaka"
-TO_CITY = "Rajshahi"
+TO_CITY = "Cox's Bazar"
 
 YEAR = 2026
 MONTH = 9
-DAY = 24
+DAY = 22
 
 SEARCH_CLASS = "SHOVAN"
 
 # Number of seats to select.
 # Maximum allowed: 4 by BD Railway.
-SEAT_COUNT = 3
+SEAT_COUNT = 2
 
 
 # ============================================================
@@ -58,6 +58,10 @@ def accept_disclaimer(page):
             agree_button.click(timeout=5000)
 
             print("Disclaimer accepted.")
+
+        else:
+
+            print("No disclaimer found.")
 
     except Exception:
 
@@ -143,6 +147,7 @@ def select_station(page, field_selector, station_name):
         if element.is_visible():
 
             target = element
+            break
 
     if target is None:
 
@@ -150,8 +155,23 @@ def select_station(page, field_selector, station_name):
 
     target.click()
 
-    # Small delay because Railway updates the input after selection.
-    page.wait_for_timeout(200)
+    # Wait until the field actually contains the selected station.
+    try:
+
+        page.wait_for_function(
+            """
+            ({selector, value}) => {
+                const element = document.querySelector(selector);
+                return element && element.value === value;
+            }
+            """,
+            arg={"selector": field_selector, "value": station_name},
+            timeout=5000,
+        )
+
+    except Exception:
+
+        pass
 
     print(f"Station selected: {field.input_value()}")
 
@@ -295,19 +315,19 @@ def open_train(page, train_container):
 
     details_button.click(force=True)
 
-    classes = train_container.locator(".single-seat-class:visible")
+    class_locator = train_container.locator(".single-seat-class:visible")
 
     try:
 
-        classes.first.wait_for(state="visible", timeout=7000)
+        class_locator.first.wait_for(state="visible", timeout=7000)
 
     except Exception:
 
-        print("Classes did not appear.")
+        print("Train classes did not appear.")
 
         return False
 
-    class_count = classes.count()
+    class_count = class_locator.count()
 
     print("Visible classes:", class_count)
 
@@ -429,17 +449,22 @@ def click_book_now(page, class_row):
 
         button.evaluate("(element) => element.click()")
 
-    # Instead of blindly waiting 3 seconds,
-    # wait for the actual seat-selection page.
+    # --------------------------------------------------------
+    # IMPORTANT:
+    # Do not sleep for a fixed 3 seconds.
+    #
+    # Continue as soon as the seat layout appears.
+    # --------------------------------------------------------
+
+    seat_layout = page.locator(".seat-layout-view:visible")
+
     try:
 
-        page.locator(".seat-layout-view:visible").first.wait_for(
-            state="visible", timeout=10000
-        )
+        seat_layout.wait_for(state="visible", timeout=15000)
 
     except Exception:
 
-        print("Seat layout did not appear after BOOK NOW.")
+        print("Seat layout did not appear.")
 
         return False
 
@@ -503,6 +528,16 @@ def get_seat_number(seat, seat_index):
 
 # ============================================================
 # CHECK CURRENT COACH
+#
+# Railway's DOM order may be column-wise.
+#
+# Example DOM order:
+# KA-1, KA-5, KA-2, KA-6...
+#
+# We sort seats using actual screen coordinates.
+#
+# Result:
+# KA-1, KA-2, KA-3, KA-4...
 # ============================================================
 
 
@@ -510,11 +545,11 @@ def check_current_coach(page, seats_needed):
 
     print("\nChecking current coach seat layout...")
 
+    seat_layout = page.locator(".seat-layout-view:visible")
+
     try:
 
-        page.locator(".seat-layout-view:visible").first.wait_for(
-            state="visible", timeout=10000
-        )
+        seat_layout.wait_for(state="visible", timeout=15000)
 
     except Exception:
 
@@ -524,15 +559,16 @@ def check_current_coach(page, seats_needed):
 
     seats = page.locator(".seat-layout-view:visible " "button.btn-seat:visible")
 
-    # Wait for at least one seat if the layout
-    # has not populated yet.
+    # Wait until at least one seat appears.
     try:
 
-        seats.first.wait_for(state="visible", timeout=5000)
+        seats.first.wait_for(state="visible", timeout=10000)
 
     except Exception:
 
-        pass
+        print("Seat icons did not appear.")
+
+        return 0
 
     seat_count = seats.count()
 
@@ -544,23 +580,91 @@ def check_current_coach(page, seats_needed):
 
         return 0
 
-    selected_count = 0
+    # --------------------------------------------------------
+    # GET VISUAL POSITION OF EVERY SEAT
+    # --------------------------------------------------------
+
+    positioned_seats = []
 
     for seat_index in range(seat_count):
+
+        seat = seats.nth(seat_index)
+
+        try:
+
+            box = seat.bounding_box()
+
+        except Exception:
+
+            box = None
+
+        if box is None:
+
+            print(f"Could not determine position " f"of seat {seat_index + 1}.")
+
+            continue
+
+        positioned_seats.append(
+            {
+                "seat": seat,
+                "index": seat_index,
+                "x": box["x"],
+                "y": box["y"],
+            }
+        )
+
+    if not positioned_seats:
+
+        print("Could not determine seat positions.")
+
+        return 0
+
+    # --------------------------------------------------------
+    # SORT VISUALLY ROW-WISE
+    # --------------------------------------------------------
+
+    positioned_seats.sort(
+        key=lambda item: (
+            round(item["y"] / 10) * 10,
+            item["x"],
+        )
+    )
+
+    print("\nSeat selection order:")
+
+    for order, item in enumerate(positioned_seats, start=1):
+
+        seat = item["seat"]
+
+        seat_number = get_seat_number(seat, item["index"])
+
+        print(
+            f"{order}. " f"{seat_number} " f"(x={item['x']:.1f}, " f"y={item['y']:.1f})"
+        )
+
+    # --------------------------------------------------------
+    # SELECT AVAILABLE SEATS
+    # --------------------------------------------------------
+
+    selected_count = 0
+
+    for item in positioned_seats:
 
         if selected_count >= seats_needed:
 
             break
 
-        seat = seats.nth(seat_index)
+        seat = item["seat"]
+
+        seat_number = get_seat_number(seat, item["index"])
 
         classes = seat.get_attribute("class") or ""
 
-        seat_number = get_seat_number(seat, seat_index)
-
-        print(f"Seat {seat_index + 1}: " f"{seat_number} | " f"class: {classes}")
+        print(f"\nChecking seat: " f"{seat_number} | " f"class: {classes}")
 
         if not is_seat_available(seat):
+
+            print("Seat unavailable.")
 
             continue
 
@@ -574,13 +678,17 @@ def check_current_coach(page, seats_needed):
 
         try:
 
-            seat.click(force=True, timeout=3000)
+            seat.click(force=True)
 
         except Exception as e:
 
             print("Seat click failed:", e)
 
             continue
+
+        # Very small safety delay so Railway can update
+        # the selected-seat state before the next click.
+        page.wait_for_timeout(150)
 
         selected_count += 1
 
@@ -682,17 +790,22 @@ def select_coach(page, coach):
 
         return False
 
-    # Wait until the seat layout for the selected
-    # coach is available instead of always waiting 1 sec.
+    # --------------------------------------------------------
+    # Wait for the coach's seat layout to remain visible.
+    # We don't use a fixed 1000ms delay here.
+    # --------------------------------------------------------
+
     try:
 
-        page.locator(".seat-layout-view:visible").first.wait_for(
+        page.locator(".seat-layout-view:visible").wait_for(
             state="visible", timeout=5000
         )
 
     except Exception:
 
-        pass
+        print("Seat layout did not remain visible " "after coach selection.")
+
+        return False
 
     return True
 
@@ -820,30 +933,21 @@ with sync_playwright() as p:
 
     page.get_by_role("button", name="SEARCH TRAINS").click()
 
-    # Wait for train results instead of fixed 1.5 sec.
+    # --------------------------------------------------------
+    # Wait for either login or train results.
+    # --------------------------------------------------------
+
+    wait_for_login(page)
+
+    train_result_locator = page.locator("div:has(.trip-details-btn)")
+
     try:
 
-        page.locator(".trip-details-btn:visible").first.wait_for(
-            state="visible", timeout=15000
-        )
+        train_result_locator.first.wait_for(state="visible", timeout=30000)
 
     except Exception:
 
         print("Train results did not appear.")
-
-    wait_for_login(page)
-
-    # Wait again because login may have caused
-    # the results to reload.
-    try:
-
-        page.locator(".trip-details-btn:visible").first.wait_for(
-            state="visible", timeout=15000
-        )
-
-    except Exception:
-
-        pass
 
     print("\nSearch results loaded.")
 
@@ -1025,6 +1129,8 @@ with sync_playwright() as p:
             # NOT ENOUGH SEATS FOUND
             #
             # Stay on seat selection page.
+            # Do not go back.
+            # Do not return to search results.
             # ------------------------------------------------
 
             print("\n================================================")
