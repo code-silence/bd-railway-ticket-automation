@@ -3,23 +3,22 @@ import re
 
 from playwright.sync_api import sync_playwright
 
-
 # ============================================================
 # SEARCH SETTINGS
 # ============================================================
 
 FROM_CITY = "Dhaka"
-TO_CITY = "Rajshahi"
+TO_CITY = "Cox's Bazar"
 
 YEAR = 2026
 MONTH = 9
-DAY = 20
+DAY = 25
 
 SEARCH_CLASS = "SHOVAN"
 
 # Number of seats to select.
-# Maximum allowed: 4
-SEAT_COUNT = 3
+# Maximum allowed: 4 by bd railway.
+SEAT_COUNT = 2
 
 
 # ============================================================
@@ -48,8 +47,7 @@ def accept_disclaimer(page):
 
     try:
         agree_button = page.get_by_role(
-            "button",
-            name=re.compile(r"I\s*AGREE", re.IGNORECASE)
+            "button", name=re.compile(r"I\s*AGREE", re.IGNORECASE)
         ).first
 
         if agree_button.count() > 0 and agree_button.is_visible():
@@ -102,10 +100,7 @@ def wait_for_login(page):
 
     try:
 
-        login_indicators.first.wait_for(
-            state="hidden",
-            timeout=300000
-        )
+        login_indicators.first.wait_for(state="hidden", timeout=300000)
 
     except Exception:
 
@@ -133,10 +128,7 @@ def select_station(page, field_selector, station_name):
 
     page.wait_for_timeout(1000)
 
-    elements = page.get_by_text(
-        station_name,
-        exact=True
-    )
+    elements = page.get_by_text(station_name, exact=True)
 
     target = None
 
@@ -159,9 +151,7 @@ def select_station(page, field_selector, station_name):
 
     page.wait_for_timeout(500)
 
-    print(
-        f"Station selected: {field.input_value()}"
-    )
+    print(f"Station selected: {field.input_value()}")
 
 
 # ============================================================
@@ -177,29 +167,17 @@ def select_date(page, year, month, day):
 
     page.wait_for_timeout(300)
 
-    datepicker = page.locator(
-        ".ui-datepicker:visible"
-    )
+    datepicker = page.locator(".ui-datepicker:visible")
 
     current_month_year = normalize_text(
-        datepicker.locator(
-            ".ui-datepicker-title"
-        ).inner_text()
+        datepicker.locator(".ui-datepicker-title").inner_text()
     )
 
-    target_month_year = (
-        f"{calendar.month_name[month]} {year}"
-    )
+    target_month_year = f"{calendar.month_name[month]} {year}"
 
-    print(
-        "Available month:",
-        current_month_year
-    )
+    print("Available month:", current_month_year)
 
-    print(
-        "Requested month:",
-        target_month_year
-    )
+    print("Requested month:", target_month_year)
 
     if current_month_year != target_month_year:
 
@@ -209,9 +187,7 @@ def select_date(page, year, month, day):
             f"{current_month_year}."
         )
 
-    day_links = datepicker.locator(
-        "td:not(.ui-datepicker-other-month) a"
-    )
+    day_links = datepicker.locator("td:not(.ui-datepicker-other-month) a")
 
     for i in range(day_links.count()):
 
@@ -221,16 +197,11 @@ def select_date(page, year, month, day):
 
             link.click()
 
-            print(
-                f"Selected date: "
-                f"{year}-{month:02d}-{day:02d}"
-            )
+            print(f"Selected date: " f"{year}-{month:02d}-{day:02d}")
 
             return
 
-    raise ValueError(
-        f"Day {day} is not available."
-    )
+    raise ValueError(f"Day {day} is not available.")
 
 
 # ============================================================
@@ -240,9 +211,7 @@ def select_date(page, year, month, day):
 
 def discover_train_containers(page):
 
-    candidates = page.locator(
-        "div:has(.trip-details-btn)"
-    )
+    candidates = page.locator("div:has(.trip-details-btn)")
 
     containers = []
 
@@ -254,9 +223,7 @@ def discover_train_containers(page):
 
             continue
 
-        if candidate.locator(
-            ".seat-classes-row"
-        ).count() == 0:
+        if candidate.locator(".seat-classes-row").count() == 0:
 
             continue
 
@@ -280,15 +247,9 @@ def discover_train_containers(page):
 
 def get_train_name(train_container):
 
-    text = normalize_text(
-        train_container.inner_text()
-    )
+    text = normalize_text(train_container.inner_text())
 
-    lines = [
-        line.strip()
-        for line in text.splitlines()
-        if line.strip()
-    ]
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
 
     for line in lines:
 
@@ -308,29 +269,21 @@ def open_train(page, train_container):
 
     print("\nClicking train...")
 
-    details_button = train_container.locator(
-        ".trip-details-btn"
-    ).first
+    details_button = train_container.locator(".trip-details-btn").first
 
     if details_button.count() == 0:
 
-        print(
-            "Train details button not found."
-        )
+        print("Train details button not found.")
 
         return False
 
     if not details_button.is_visible():
 
-        print(
-            "Train details button is not visible."
-        )
+        print("Train details button is not visible.")
 
         return False
 
-    print(
-        "Clicking train details button..."
-    )
+    print("Clicking train details button...")
 
     details_button.click(force=True)
 
@@ -338,25 +291,17 @@ def open_train(page, train_container):
 
     try:
 
-        train_container.locator(
-            ".single-seat-class:visible"
-        ).first.wait_for(
-            state="visible",
-            timeout=5000
+        train_container.locator(".single-seat-class:visible").first.wait_for(
+            state="visible", timeout=5000
         )
 
     except Exception:
 
         page.wait_for_timeout(1500)
 
-    class_count = train_container.locator(
-        ".single-seat-class:visible"
-    ).count()
+    class_count = train_container.locator(".single-seat-class:visible").count()
 
-    print(
-        "Visible classes:",
-        class_count
-    )
+    print("Visible classes:", class_count)
 
     return class_count > 0
 
@@ -368,9 +313,7 @@ def open_train(page, train_container):
 
 def discover_class_rows(train_container):
 
-    rows = train_container.locator(
-        ".single-seat-class:visible"
-    )
+    rows = train_container.locator(".single-seat-class:visible")
 
     result = []
 
@@ -394,17 +337,13 @@ def get_class_information(class_row):
 
     class_name = "Unknown"
 
-    class_name_locator = class_row.locator(
-        ".seat-class-name"
-    )
+    class_name_locator = class_row.locator(".seat-class-name")
 
     if class_name_locator.count() > 0:
 
         try:
 
-            class_name = normalize_text(
-                class_name_locator.first.inner_text()
-            )
+            class_name = normalize_text(class_name_locator.first.inner_text())
 
         except Exception:
 
@@ -412,28 +351,19 @@ def get_class_information(class_row):
 
     availability = None
 
-    availability_locator = class_row.locator(
-        ".all-seats"
-    )
+    availability_locator = class_row.locator(".all-seats")
 
     if availability_locator.count() > 0:
 
         try:
 
-            availability_text = normalize_text(
-                availability_locator.first.inner_text()
-            )
+            availability_text = normalize_text(availability_locator.first.inner_text())
 
-            match = re.search(
-                r"\d+",
-                availability_text
-            )
+            match = re.search(r"\d+", availability_text)
 
             if match:
 
-                availability = int(
-                    match.group()
-                )
+                availability = int(match.group())
 
         except Exception:
 
@@ -449,39 +379,27 @@ def get_class_information(class_row):
 
 def click_book_now(page, class_row):
 
-    print(
-        "\nSearching for BOOK NOW button..."
-    )
+    print("\nSearching for BOOK NOW button...")
 
     button = class_row.get_by_role(
-        "button",
-        name=re.compile(
-            r"BOOK NOW",
-            re.IGNORECASE
-        )
+        "button", name=re.compile(r"BOOK NOW", re.IGNORECASE)
     ).first
 
     if button.count() == 0:
 
-        print(
-            "BOOK NOW button not found."
-        )
+        print("BOOK NOW button not found.")
 
         return False
 
     if not button.is_visible():
 
-        print(
-            "BOOK NOW button is not visible."
-        )
+        print("BOOK NOW button is not visible.")
 
         return False
 
     if button.is_disabled():
 
-        print(
-            "BOOK NOW button is disabled."
-        )
+        print("BOOK NOW button is disabled.")
 
         return False
 
@@ -499,18 +417,11 @@ def click_book_now(page, class_row):
 
     except Exception as e:
 
-        print(
-            "Normal click failed:",
-            e
-        )
+        print("Normal click failed:", e)
 
-        print(
-            "Trying DOM click..."
-        )
+        print("Trying DOM click...")
 
-        button.evaluate(
-            "(element) => element.click()"
-        )
+        button.evaluate("(element) => element.click()")
 
     page.wait_for_timeout(3000)
 
@@ -524,10 +435,7 @@ def click_book_now(page, class_row):
 
 def is_seat_available(seat):
 
-    classes = (
-        seat.get_attribute("class")
-        or ""
-    ).lower()
+    classes = (seat.get_attribute("class") or "").lower()
 
     unavailable_states = [
         "booked",
@@ -564,26 +472,13 @@ def is_seat_available(seat):
 
 def get_seat_number(seat, seat_index):
 
-    title = (
-        seat.get_attribute("title")
-        or ""
-    )
+    title = seat.get_attribute("title") or ""
 
-    data_seat = (
-        seat.get_attribute("data-seat")
-        or ""
-    )
+    data_seat = seat.get_attribute("data-seat") or ""
 
-    text = normalize_text(
-        seat.inner_text()
-    )
+    text = normalize_text(seat.inner_text())
 
-    return (
-        title.strip()
-        or data_seat.strip()
-        or text
-        or f"seat-{seat_index + 1}"
-    )
+    return title.strip() or data_seat.strip() or text or f"seat-{seat_index + 1}"
 
 
 # ============================================================
@@ -593,46 +488,31 @@ def get_seat_number(seat, seat_index):
 
 def check_current_coach(page, seats_needed):
 
-    print(
-        "\nChecking current coach seat layout..."
-    )
+    print("\nChecking current coach seat layout...")
 
     try:
 
-        page.locator(
-            ".seat-layout-view:visible"
-        ).wait_for(
-            state="visible",
-            timeout=15000
+        page.locator(".seat-layout-view:visible").wait_for(
+            state="visible", timeout=15000
         )
 
     except Exception:
 
-        print(
-            "Seat layout did not appear."
-        )
+        print("Seat layout did not appear.")
 
         return 0
 
     page.wait_for_timeout(700)
 
-    seats = page.locator(
-        ".seat-layout-view:visible "
-        "button.btn-seat:visible"
-    )
+    seats = page.locator(".seat-layout-view:visible " "button.btn-seat:visible")
 
     seat_count = seats.count()
 
-    print(
-        "Seat icons found:",
-        seat_count
-    )
+    print("Seat icons found:", seat_count)
 
     if seat_count == 0:
 
-        print(
-            "No seat icons found."
-        )
+        print("No seat icons found.")
 
         return 0
 
@@ -646,38 +526,21 @@ def check_current_coach(page, seats_needed):
 
         seat = seats.nth(seat_index)
 
-        classes = (
-            seat.get_attribute("class")
-            or ""
-        )
+        classes = seat.get_attribute("class") or ""
 
-        seat_number = get_seat_number(
-            seat,
-            seat_index
-        )
+        seat_number = get_seat_number(seat, seat_index)
 
-        print(
-            f"Seat {seat_index + 1}: "
-            f"{seat_number} | "
-            f"class: {classes}"
-        )
+        print(f"Seat {seat_index + 1}: " f"{seat_number} | " f"class: {classes}")
 
         if not is_seat_available(seat):
 
             continue
 
-        print(
-            "\nAVAILABLE SEAT FOUND!"
-        )
+        print("\nAVAILABLE SEAT FOUND!")
 
-        print(
-            "Seat:",
-            seat_number
-        )
+        print("Seat:", seat_number)
 
-        print(
-            "Clicking seat..."
-        )
+        print("Clicking seat...")
 
         seat.scroll_into_view_if_needed()
 
@@ -689,10 +552,7 @@ def check_current_coach(page, seats_needed):
 
         except Exception as e:
 
-            print(
-                "Seat click failed:",
-                e
-            )
+            print("Seat click failed:", e)
 
             continue
 
@@ -700,15 +560,9 @@ def check_current_coach(page, seats_needed):
 
         selected_count += 1
 
-        print(
-            f"Seat selected: "
-            f"{seat_number}"
-        )
+        print(f"Seat selected: " f"{seat_number}")
 
-        print(
-            f"Seats selected in this coach: "
-            f"{selected_count}/{seats_needed}"
-        )
+        print(f"Seats selected in this coach: " f"{selected_count}/{seats_needed}")
 
     return selected_count
 
@@ -720,79 +574,47 @@ def check_current_coach(page, seats_needed):
 
 def discover_available_coaches(page):
 
-    coach_select = page.locator(
-        "#select-bogie:visible"
-    ).first
+    coach_select = page.locator("#select-bogie:visible").first
 
     if coach_select.count() == 0:
 
-        print(
-            "Select Coach field not found."
-        )
+        print("Select Coach field not found.")
 
         return []
 
-    options = coach_select.locator(
-        "option"
-    )
+    options = coach_select.locator("option")
 
     coaches = []
 
-    print(
-        "\n================================================"
-    )
+    print("\n================================================")
 
-    print(
-        "DISCOVERING COACHES"
-    )
+    print("DISCOVERING COACHES")
 
-    print(
-        "================================================"
-    )
+    print("================================================")
 
     for i in range(options.count()):
 
         option = options.nth(i)
 
-        coach_text = normalize_text(
-            option.inner_text()
-        )
+        coach_text = normalize_text(option.inner_text())
 
-        coach_value = (
-            option.get_attribute("value")
-            or ""
-        )
+        coach_value = option.get_attribute("value") or ""
 
-        match = re.search(
-            r"(\d+)\s*Seat\(s\)",
-            coach_text,
-            re.IGNORECASE
-        )
+        match = re.search(r"(\d+)\s*Seat\(s\)", coach_text, re.IGNORECASE)
 
         if not match:
 
-            print(
-                f"Coach option ignored: "
-                f"{coach_text}"
-            )
+            print(f"Coach option ignored: " f"{coach_text}")
 
             continue
 
-        seat_count = int(
-            match.group(1)
-        )
+        seat_count = int(match.group(1))
 
         coach_name = re.sub(
-            r"\s*-\s*\d+\s*Seat\(s\).*",
-            "",
-            coach_text,
-            flags=re.IGNORECASE
+            r"\s*-\s*\d+\s*Seat\(s\).*", "", coach_text, flags=re.IGNORECASE
         ).strip()
 
-        print(
-            f"{coach_name}: "
-            f"{seat_count} seat(s)"
-        )
+        print(f"{coach_name}: " f"{seat_count} seat(s)")
 
         if seat_count <= 0:
 
@@ -816,35 +638,23 @@ def discover_available_coaches(page):
 
 def select_coach(page, coach):
 
-    coach_select = page.locator(
-        "#select-bogie:visible"
-    ).first
+    coach_select = page.locator("#select-bogie:visible").first
 
     if coach_select.count() == 0:
 
-        print(
-            "Select Coach field not found."
-        )
+        print("Select Coach field not found.")
 
         return False
 
-    print(
-        f"\nSelecting coach: "
-        f"{coach['name']}"
-    )
+    print(f"\nSelecting coach: " f"{coach['name']}")
 
     try:
 
-        coach_select.select_option(
-            coach["value"]
-        )
+        coach_select.select_option(coach["value"])
 
     except Exception as e:
 
-        print(
-            "Could not select coach:",
-            e
-        )
+        print("Could not select coach:", e)
 
         return False
 
@@ -858,127 +668,69 @@ def select_coach(page, coach):
 # ============================================================
 
 
-def check_all_coaches_in_class(
-    page,
-    required_seats
-):
+def check_all_coaches_in_class(page, required_seats):
 
-    coaches = discover_available_coaches(
-        page
-    )
+    coaches = discover_available_coaches(page)
 
     if not coaches:
 
-        print(
-            "\nNo coaches with available "
-            "tickets were found."
-        )
+        print("\nNo coaches with available " "tickets were found.")
 
         return 0
 
-    print(
-        f"\nCoaches to check: "
-        f"{len(coaches)}"
-    )
+    print(f"\nCoaches to check: " f"{len(coaches)}")
 
     total_selected = 0
 
-    for coach_index, coach in enumerate(
-        coaches,
-        start=1
-    ):
+    for coach_index, coach in enumerate(coaches, start=1):
 
         if total_selected >= required_seats:
 
             break
 
-        seats_needed = (
-            required_seats - total_selected
-        )
+        seats_needed = required_seats - total_selected
 
-        print(
-            "\n================================================"
-        )
+        print("\n================================================")
 
-        print(
-            f"COACH "
-            f"{coach_index}/"
-            f"{len(coaches)}"
-        )
+        print(f"COACH " f"{coach_index}/" f"{len(coaches)}")
 
-        print(
-            "================================================"
-        )
+        print("================================================")
 
-        print(
-            "Coach:",
-            coach["name"]
-        )
+        print("Coach:", coach["name"])
 
-        print(
-            "Reported seats:",
-            coach["seat_count"]
-        )
+        print("Reported seats:", coach["seat_count"])
 
-        print(
-            "Seats still needed:",
-            seats_needed
-        )
+        print("Seats still needed:", seats_needed)
 
-        selected = select_coach(
-            page,
-            coach
-        )
+        selected = select_coach(page, coach)
 
         if not selected:
 
-            print(
-                "Could not select this coach."
-            )
+            print("Could not select this coach.")
 
             continue
 
-        selected_in_coach = check_current_coach(
-            page,
-            seats_needed
-        )
+        selected_in_coach = check_current_coach(page, seats_needed)
 
         total_selected += selected_in_coach
 
-        print(
-            f"\nTotal seats selected: "
-            f"{total_selected}/{required_seats}"
-        )
+        print(f"\nTotal seats selected: " f"{total_selected}/{required_seats}")
 
         if total_selected >= required_seats:
 
-            print(
-                "\nRequired number of seats selected."
-            )
+            print("\nRequired number of seats selected.")
 
             return total_selected
 
-        print(
-            f"\nNo more required seats "
-            f"found in coach {coach['name']}."
-        )
+        print(f"\nNo more required seats " f"found in coach {coach['name']}.")
 
-    print(
-        "\n================================================"
-    )
+    print("\n================================================")
 
-    print(
-        "ALL AVAILABLE COACHES CHECKED"
-    )
+    print("ALL AVAILABLE COACHES CHECKED")
 
-    print(
-        f"Seats selected: "
-        f"{total_selected}/{required_seats}"
-    )
+    print(f"Seats selected: " f"{total_selected}/{required_seats}")
 
-    print(
-        "================================================"
-    )
+    print("================================================")
 
     return total_selected
 
@@ -990,84 +742,49 @@ def check_all_coaches_in_class(
 
 with sync_playwright() as p:
 
-    browser = p.chromium.connect_over_cdp(
-        "http://127.0.0.1:9222"
-    )
+    browser = p.chromium.connect_over_cdp("http://127.0.0.1:9222")
 
     context = browser.contexts[0]
 
     if not context.pages:
 
-        raise RuntimeError(
-            "No browser page found."
-        )
+        raise RuntimeError("No browser page found.")
 
     page = context.pages[0]
 
     accept_disclaimer(page)
 
-    print(
-        "Connected to:",
-        page.url
-    )
+    print("Connected to:", page.url)
 
     # ========================================================
     # SEARCH DETAILS
     # ========================================================
 
-    select_station(
-        page,
-        "#dest_from",
-        FROM_CITY
-    )
+    select_station(page, "#dest_from", FROM_CITY)
 
-    select_station(
-        page,
-        "#dest_to",
-        TO_CITY
-    )
+    select_station(page, "#dest_to", TO_CITY)
 
-    select_date(
-        page,
-        year=YEAR,
-        month=MONTH,
-        day=DAY
-    )
+    select_date(page, year=YEAR, month=MONTH, day=DAY)
 
     # ========================================================
     # SEARCH CLASS
     # ========================================================
 
-    class_select = page.locator(
-        "#choose_class"
-    )
+    class_select = page.locator("#choose_class")
 
-    class_select.select_option(
-        SEARCH_CLASS
-    )
+    class_select.select_option(SEARCH_CLASS)
 
-    print(
-        "Search class:",
-        class_select.input_value()
-    )
+    print("Search class:", class_select.input_value())
 
-    print(
-        "Requested seats:",
-        SEAT_COUNT
-    )
+    print("Requested seats:", SEAT_COUNT)
 
     # ========================================================
     # SEARCH TRAINS
     # ========================================================
 
-    print(
-        "\nClicking SEARCH TRAINS..."
-    )
+    print("\nClicking SEARCH TRAINS...")
 
-    page.get_by_role(
-        "button",
-        name="SEARCH TRAINS"
-    ).click()
+    page.get_by_role("button", name="SEARCH TRAINS").click()
 
     page.wait_for_timeout(1500)
 
@@ -1075,36 +792,23 @@ with sync_playwright() as p:
 
     page.wait_for_timeout(5000)
 
-    print(
-        "\nSearch results loaded."
-    )
+    print("\nSearch results loaded.")
 
     # ========================================================
     # FIND TRAINS
     # ========================================================
 
-    train_containers = (
-        discover_train_containers(page)
-    )
+    train_containers = discover_train_containers(page)
 
-    print(
-        "\n================================================"
-    )
+    print("\n================================================")
 
-    print(
-        "TRAINS FOUND:",
-        len(train_containers)
-    )
+    print("TRAINS FOUND:", len(train_containers))
 
-    print(
-        "================================================"
-    )
+    print("================================================")
 
     if not train_containers:
 
-        raise RuntimeError(
-            "No train containers were discovered."
-        )
+        raise RuntimeError("No train containers were discovered.")
 
     # ========================================================
     # PROCESS TRAINS
@@ -1116,53 +820,31 @@ with sync_playwright() as p:
 
     train_index = 0
 
-    while train_index < len(
-        train_containers
-    ):
+    while train_index < len(train_containers):
 
-        train_container = (
-            train_containers[train_index]
-        )
+        train_container = train_containers[train_index]
 
         train_index += 1
 
-        print(
-            "\n================================================"
-        )
+        print("\n================================================")
 
-        print(
-            f"EXPRESS "
-            f"{train_index}/"
-            f"{len(train_containers)}"
-        )
+        print(f"EXPRESS " f"{train_index}/" f"{len(train_containers)}")
 
-        print(
-            "================================================"
-        )
+        print("================================================")
 
-        train_name = get_train_name(
-            train_container
-        )
+        train_name = get_train_name(train_container)
 
-        print(
-            "Train:",
-            train_name
-        )
+        print("Train:", train_name)
 
         # ----------------------------------------------------
         # OPEN TRAIN
         # ----------------------------------------------------
 
-        opened = open_train(
-            page,
-            train_container
-        )
+        opened = open_train(page, train_container)
 
         if not opened:
 
-            print(
-                "Could not open this train."
-            )
+            print("Could not open this train.")
 
             continue
 
@@ -1170,14 +852,9 @@ with sync_playwright() as p:
         # GET CLASSES
         # ----------------------------------------------------
 
-        class_rows = discover_class_rows(
-            train_container
-        )
+        class_rows = discover_class_rows(train_container)
 
-        print(
-            "Classes found:",
-            len(class_rows)
-        )
+        print("Classes found:", len(class_rows))
 
         # ----------------------------------------------------
         # CHECK CLASSES
@@ -1185,45 +862,25 @@ with sync_playwright() as p:
 
         class_index = 0
 
-        while class_index < len(
-            class_rows
-        ):
+        while class_index < len(class_rows):
 
-            class_row = class_rows[
-                class_index
-            ]
+            class_row = class_rows[class_index]
 
             class_index += 1
 
-            class_name, availability = (
-                get_class_information(
-                    class_row
-                )
-            )
+            class_name, availability = get_class_information(class_row)
 
-            print(
-                f"\nClass {class_index}:",
-                class_name
-            )
+            print(f"\nClass {class_index}:", class_name)
 
-            print(
-                "Available tickets:",
-                availability
-            )
+            print("Available tickets:", availability)
 
             # ------------------------------------------------
             # ZERO TICKETS
             # ------------------------------------------------
 
-            if (
-                availability is not None
-                and availability <= 0
-            ):
+            if availability is not None and availability <= 0:
 
-                print(
-                    "No tickets. "
-                    "Skipping class."
-                )
+                print("No tickets. " "Skipping class.")
 
                 continue
 
@@ -1233,10 +890,7 @@ with sync_playwright() as p:
 
             if availability is None:
 
-                print(
-                    "Availability unknown. "
-                    "Skipping class."
-                )
+                print("Availability unknown. " "Skipping class.")
 
                 continue
 
@@ -1244,29 +898,15 @@ with sync_playwright() as p:
             # AVAILABLE CLASS
             # ------------------------------------------------
 
-            print(
-                "\nAVAILABLE CLASS FOUND!"
-            )
+            print("\nAVAILABLE CLASS FOUND!")
 
-            print(
-                "Train:",
-                train_name
-            )
+            print("Train:", train_name)
 
-            print(
-                "Class:",
-                class_name
-            )
+            print("Class:", class_name)
 
-            print(
-                "Available tickets:",
-                availability
-            )
+            print("Available tickets:", availability)
 
-            print(
-                "Seats requested:",
-                SEAT_COUNT
-            )
+            print("Seats requested:", SEAT_COUNT)
 
             # ------------------------------------------------
             # CHECK WHETHER CLASS CAN SATISFY REQUEST
@@ -1280,9 +920,7 @@ with sync_playwright() as p:
                     f"Need {SEAT_COUNT}."
                 )
 
-                print(
-                    "Skipping this class."
-                )
+                print("Skipping this class.")
 
                 continue
 
@@ -1290,81 +928,43 @@ with sync_playwright() as p:
             # BOOK NOW
             # ------------------------------------------------
 
-            clicked = click_book_now(
-                page,
-                class_row
-            )
+            clicked = click_book_now(page, class_row)
 
             if not clicked:
 
-                print(
-                    "BOOK NOW failed."
-                )
+                print("BOOK NOW failed.")
 
                 continue
 
-            print(
-                "\nBOOK NOW clicked."
-            )
+            print("\nBOOK NOW clicked.")
 
             # ------------------------------------------------
             # CHECK EVERY COACH
             # ------------------------------------------------
 
-            selected_seat_total = (
-                check_all_coaches_in_class(
-                    page,
-                    SEAT_COUNT
-                )
-            )
+            selected_seat_total = check_all_coaches_in_class(page, SEAT_COUNT)
 
-            if (
-                selected_seat_total
-                >= SEAT_COUNT
-            ):
+            if selected_seat_total >= SEAT_COUNT:
 
                 seat_selected = True
 
-                print(
-                    "\n================================================"
-                )
+                print("\n================================================")
 
-                print(
-                    "SUCCESS"
-                )
+                print("SUCCESS")
 
-                print(
-                    "TRAIN:",
-                    train_name
-                )
+                print("TRAIN:", train_name)
 
-                print(
-                    "CLASS:",
-                    class_name
-                )
+                print("CLASS:", class_name)
 
-                print(
-                    "TICKET AVAILABILITY:",
-                    availability
-                )
+                print("TICKET AVAILABILITY:", availability)
 
-                print(
-                    "SEATS REQUESTED:",
-                    SEAT_COUNT
-                )
+                print("SEATS REQUESTED:", SEAT_COUNT)
 
-                print(
-                    "SEATS SELECTED:",
-                    selected_seat_total
-                )
+                print("SEATS SELECTED:", selected_seat_total)
 
-                print(
-                    "Stopping automation."
-                )
+                print("Stopping automation.")
 
-                print(
-                    "================================================"
-                )
+                print("================================================")
 
                 break
 
@@ -1377,33 +977,19 @@ with sync_playwright() as p:
             # Do not return to search results.
             # ------------------------------------------------
 
-            print(
-                "\n================================================"
-            )
+            print("\n================================================")
 
-            print(
-                "NOT ENOUGH AVAILABLE SEATS"
-            )
+            print("NOT ENOUGH AVAILABLE SEATS")
 
-            print(
-                "================================================"
-            )
+            print("================================================")
 
-            print(
-                f"Requested: {SEAT_COUNT}"
-            )
+            print(f"Requested: {SEAT_COUNT}")
 
-            print(
-                f"Selected: {selected_seat_total}"
-            )
+            print(f"Selected: {selected_seat_total}")
 
-            print(
-                "Remaining on seat selection page."
-            )
+            print("Remaining on seat selection page.")
 
-            print(
-                "Stopping automation."
-            )
+            print("Stopping automation.")
 
             break
 
@@ -1419,17 +1005,11 @@ with sync_playwright() as p:
         # STOP AFTER ENTERING SEAT PAGE
         # ----------------------------------------------------
 
-        if page.locator(
-            ".seat-layout-view:visible"
-        ).count() > 0:
+        if page.locator(".seat-layout-view:visible").count() > 0:
 
-            print(
-                "\nSeat selection page is still open."
-            )
+            print("\nSeat selection page is still open.")
 
-            print(
-                "Automation stopped here."
-            )
+            print("Automation stopped here.")
 
             break
 
@@ -1439,47 +1019,28 @@ with sync_playwright() as p:
 
     if not seat_selected:
 
-        print(
-            "\n================================================"
-        )
+        print("\n================================================")
 
-        print(
-            "AUTOMATION STOPPED"
-        )
+        print("AUTOMATION STOPPED")
 
-        print(
-            f"Requested seats: {SEAT_COUNT}"
-        )
+        print(f"Requested seats: {SEAT_COUNT}")
 
-        print(
-            f"Selected seats: {selected_seat_total}"
-        )
+        print(f"Selected seats: {selected_seat_total}")
 
-        print(
-            "Browser remains on the current page."
-        )
+        print("Browser remains on the current page.")
 
-        print(
-            "================================================"
-        )
+        print("================================================")
 
     else:
 
-        print(
-            "\nSeat selection complete."
-        )
+        print("\nSeat selection complete.")
 
-        print(
-            f"{selected_seat_total} seat(s) selected."
-        )
+        print(f"{selected_seat_total} seat(s) selected.")
 
     # ========================================================
     # KEEP BROWSER OPEN
     # ========================================================
 
-    input(
-        "\nPress Enter when you want "
-        "to close the browser..."
-    )
+    input("\nPress Enter when you want " "to close the browser...")
 
     browser.close()
