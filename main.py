@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright
 # ============================================================
 
 FROM_CITY = "Dhaka"
-TO_CITY = "Cox's Bazar"
+TO_CITY = "Rajshahi"
 
 YEAR = 2026
 MONTH = 9
